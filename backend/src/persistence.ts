@@ -21,6 +21,7 @@ const roomStateSchema = z.object({
     playersCanPing: z.boolean(),
     mapAudioEnabled: z.boolean(),
     mapVolume: z.number(),
+    discordInviteUrl: z.string().max(2048).default(""),
   }),
   tokens: z.array(
     z.object({

@@ -7,38 +7,31 @@ Describir despliegue local y ruta recomendada para produccion.
 ## Prerequisitos
 
 - Node.js 20+
-- npm 10+
+- pnpm 10+ (recomendado: `corepack enable` para activar la version indicada en `packageManager` del `package.json` de la raiz)
 - Redis opcional para multi-instancia
 
 ## Desarrollo local
 
-1. Instalar dependencias raiz:
+1. Instalar dependencias del monorepo (una sola vez, desde la raiz):
 
 ```bash
 cd /Users/dannielnavas/Documents/siteprojects/new-d20
-npm install
+pnpm install
 ```
 
-2. Instalar dependencias backend y frontend:
-
-```bash
-npm install --prefix backend
-npm install --prefix frontend/d20
-```
-
-3. Configurar variables:
+2. Configurar variables:
 
 ```bash
 cp .env.example .env
 ```
 
-4. Levantar todo:
+3. Levantar todo:
 
 ```bash
-npm run dev
+pnpm run dev
 ```
 
-5. Verificar salud backend:
+4. Verificar salud backend:
 
 ```bash
 curl http://localhost:3000/health
@@ -47,7 +40,7 @@ curl http://localhost:3000/health
 ## Build
 
 ```bash
-npm run build
+pnpm run build
 ```
 
 ## Produccion recomendada
@@ -58,10 +51,10 @@ npm run build
 
 ## Checklist previa a deploy
 
-- `npm run typecheck --prefix backend`
-- `npm run build --prefix backend`
-- `npm run build --prefix frontend/d20`
-- `npm run test --prefix frontend/d20 -- --watch=false`
+- `pnpm run typecheck`
+- `pnpm --filter backend build`
+- `pnpm --filter d20 build`
+- `pnpm --filter d20 test -- --watch=false`
 
 ## Diagnostico rapido
 

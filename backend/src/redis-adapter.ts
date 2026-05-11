@@ -73,7 +73,12 @@ export async function applyRedisAdapter(io: Server): Promise<RedisRoomStore | nu
         if (!raw) {
           return null;
         }
-        return JSON.parse(raw) as RoomState;
+        const room = JSON.parse(raw) as RoomState;
+        room.settings = {
+          ...room.settings,
+          discordInviteUrl: room.settings.discordInviteUrl ?? "",
+        };
+        return room;
       } catch (error: unknown) {
         console.warn(`No se pudo leer room:${roomId} desde Redis`, error);
         return null;

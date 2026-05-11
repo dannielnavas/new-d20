@@ -3,11 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "description": "Monorepo d20 VTT",
+  "packageManager": "pnpm@10.15.1",
   "scripts": {
-    "dev": "concurrently -n backend,frontend -c cyan,magenta \"npm run dev --prefix backend\" \"npm run start --prefix frontend/d20\"",
-    "build": "npm run build --prefix backend && npm run build --prefix frontend/d20",
-    "test": "npm run test --prefix backend && npm run test --prefix frontend/d20",
-    "typecheck": "npm run typecheck --prefix backend && npm run build --prefix frontend/d20 -- --configuration development",
+    "dev": "concurrently -n backend,frontend -c cyan,magenta \"pnpm --filter backend dev\" \"pnpm --filter d20 start\"",
+    "build": "pnpm --filter backend build && pnpm --filter d20 build",
+    "test": "pnpm --filter backend test && pnpm --filter d20 test",
+    "typecheck": "pnpm --filter backend typecheck && pnpm --filter d20 typecheck",
     "format": "prettier --write .",
     "prepare": "husky"
   },

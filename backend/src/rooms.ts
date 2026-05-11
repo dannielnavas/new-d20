@@ -16,6 +16,7 @@ function createDefaultRoom(roomId: string): RoomState {
       playersCanPing: true,
       mapAudioEnabled: false,
       mapVolume: 50,
+      discordInviteUrl: "",
     },
     tokens: [],
     chatLog: [],

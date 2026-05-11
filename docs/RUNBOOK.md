@@ -8,7 +8,7 @@ Guia operativa para iniciar, validar y recuperar servicio.
 
 ```bash
 cd /Users/dannielnavas/Documents/siteprojects/new-d20
-npm run dev
+pnpm run dev
 ```
 
 ## Parada
@@ -35,10 +35,10 @@ curl http://localhost:3000/health
 ## Comandos de diagnostico
 
 ```bash
-npm run typecheck --prefix backend
-npm run build --prefix backend
-npm run build --prefix frontend/d20
-npm run test --prefix frontend/d20 -- --watch=false
+pnpm run typecheck
+pnpm --filter backend build
+pnpm --filter d20 build
+pnpm --filter d20 test -- --watch=false
 ```
 
 ## Incidentes comunes
