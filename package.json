@@ -1,0 +1,27 @@
+{
+  "name": "new-d20",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Monorepo d20 VTT",
+  "scripts": {
+    "dev": "concurrently -n backend,frontend -c cyan,magenta \"npm run dev --prefix backend\" \"npm run start --prefix frontend/d20\"",
+    "build": "npm run build --prefix backend && npm run build --prefix frontend/d20",
+    "test": "npm run test --prefix backend && npm run test --prefix frontend/d20",
+    "typecheck": "npm run typecheck --prefix backend && npm run build --prefix frontend/d20 -- --configuration development",
+    "format": "prettier --write .",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^19.8.1",
+    "@commitlint/config-conventional": "^19.8.1",
+    "concurrently": "^9.2.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.1.6",
+    "prettier": "^3.6.2"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,json,md,css,scss,html,yml,yaml}": [
+      "prettier --write"
+    ]
+  }
+}

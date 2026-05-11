@@ -1,0 +1,10 @@
+node_modules/
+package-lock.json
+pnpm-lock.yaml
+.env
+.env.*
+!.env.example
+.DS_Store
+dist/
+coverage/
+backend/data/vtt-snapshot.json
