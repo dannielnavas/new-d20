@@ -19,6 +19,7 @@ import { registerSocketEventHandlers } from "./socket-events.js";
 import { buildUploadsRouter } from "./uploads.js";
 
 const PORT = Number(process.env.PORT || 3000);
+const SOCKET_IO_PATH = process.env.SOCKET_IO_PATH || "/socketio";
 
 async function bootstrap(): Promise<void> {
   const app = express();
@@ -43,6 +44,7 @@ async function bootstrap(): Promise<void> {
   const httpServer = createServer(app);
 
   const io = new Server(httpServer, {
+    path: SOCKET_IO_PATH,
     cors: {
       origin: (origin, callback) => {
         if (!origin || isOriginAllowed(origin)) {
