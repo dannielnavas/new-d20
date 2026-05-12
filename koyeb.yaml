@@ -1,0 +1,50 @@
+name: new-d20
+services:
+  - name: backend
+    type: web
+    env: node
+    instance_type: nano
+    git:
+      branch: main
+      build_command: npm install --prefix backend && npm run build --prefix backend
+      run_command: npm run start --prefix backend
+    ports:
+      - port: 3000
+        protocol: http
+    health_checks:
+      - protocol: http
+        path: /health
+        port: 3000
+        grace_period: 20s
+        interval: 30s
+        timeout: 5s
+        restart_limit: 3
+    env_vars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3000"
+      - key: CLIENT_ORIGIN
+        value: https://your-frontend-domain.com
+      - key: DM_SECRET
+        value: change_me
+      - key: JWT_SECRET
+        value: change_me
+      - key: REDIS_URL
+        value: ""
+      - key: REDIS_SESSION_TTL
+        value: "86400"
+      - key: DISCORD_CLIENT_ID
+        value: ""
+      - key: DISCORD_CLIENT_SECRET
+        value: ""
+      - key: DISCORD_REDIRECT_URI
+        value: ""
+      - key: CLOUDINARY_CLOUD_NAME
+        value: ""
+      - key: CLOUDINARY_API_KEY
+        value: ""
+      - key: CLOUDINARY_API_SECRET
+        value: ""
+      - key: CLOUDINARY_UPLOAD_FOLDER
+        value: d20-vtt/tokens
