@@ -50,6 +50,10 @@ export function getAllowedOrigins(): string[] {
 }
 
 export function isOriginAllowed(origin: string): boolean {
+  if (origin === "null") {
+    return true;
+  }
+
   return getAllowedOrigins().some((allowedOrigin) => matchOrigin(origin, allowedOrigin));
 }
 
