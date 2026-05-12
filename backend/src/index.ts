@@ -8,7 +8,7 @@ import { Server } from "socket.io";
 
 import { buildDmAuthRouter } from "./auth-dm.js";
 import { buildAutomationRouter } from "./automation.js";
-import { buildCorsOptions, getAllowedOrigins } from "./cors-config.js";
+import { buildCorsOptions, isOriginAllowed } from "./cors-config.js";
 import { buildDiscordAuthRouter } from "./discord-auth.js";
 import { registerJoinHandlers } from "./join-handlers.js";
 import { registerDisconnectHandler } from "./on-disconnect.js";
@@ -44,7 +44,14 @@ async function bootstrap(): Promise<void> {
 
   const io = new Server(httpServer, {
     cors: {
-      origin: getAllowedOrigins(),
+      origin: (origin, callback) => {
+        if (!origin || isOriginAllowed(origin)) {
+          callback(null, true);
+          return;
+        }
+
+        callback(new Error("Origen no permitido por CORS"));
+      },
       credentials: true,
     },
   });
