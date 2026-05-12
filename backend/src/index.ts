@@ -16,6 +16,7 @@ import { flushPersistedRooms, loadRoomsFromDisk, setRedisRoomStore } from "./per
 import { applyRedisAdapter } from "./redis-adapter.js";
 import { getRoomsMap, hydrateRooms } from "./rooms.js";
 import { registerSocketEventHandlers } from "./socket-events.js";
+import { registerPeerHandlers } from "./socket-peer.js";
 import { buildUploadsRouter } from "./uploads.js";
 
 const PORT = Number(process.env.PORT || 3000);
@@ -72,6 +73,7 @@ async function bootstrap(): Promise<void> {
   io.on("connection", (socket) => {
     registerJoinHandlers(io, socket);
     registerSocketEventHandlers(io, socket);
+    registerPeerHandlers(io, socket);
     registerDisconnectHandler(io, socket);
   });
 
