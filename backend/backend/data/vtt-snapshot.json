@@ -1,0 +1,29 @@
+{
+  "rooms": [
+    {
+      "roomId": "demo",
+      "roomVersion": 2,
+      "sessionPasswordConfigured": false,
+      "settings": {
+        "backgroundUrl": "",
+        "backgroundType": "image",
+        "gridSize": 50,
+        "snapToGrid": true,
+        "playersCanPing": true,
+        "mapAudioEnabled": false,
+        "mapVolume": 50,
+        "discordInviteUrl": ""
+      },
+      "tokens": [],
+      "chatLog": [],
+      "activityLog": [],
+      "diceLog": [],
+      "initiative": {
+        "visible": false,
+        "order": [],
+        "currentIndex": 0
+      },
+      "presence": []
+    }
+  ]
+}

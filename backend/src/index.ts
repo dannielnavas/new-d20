@@ -1,3 +1,5 @@
+import "./env.js";
+
 import { createServer } from "node:http";
 
 import cors from "cors";

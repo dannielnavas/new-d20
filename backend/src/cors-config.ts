@@ -10,7 +10,7 @@ function splitOrigins(raw: string): string[] {
 export function getAllowedOrigins(): string[] {
   const envOrigins = process.env.CLIENT_ORIGIN;
   if (!envOrigins) {
-    return ["http://localhost:4200"];
+    return ["http://localhost:4200", "https://d20-new.vercel.app/"];
   }
   return splitOrigins(envOrigins);
 }
