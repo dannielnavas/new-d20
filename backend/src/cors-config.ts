@@ -1,5 +1,15 @@
 import { CorsOptions } from "cors";
 
+const DEFAULT_ALLOWED_ORIGINS = [
+  "http://localhost:4200",
+  "https://d20-new.vercel.app",
+  "https://*.vercel.app",
+  "https://discord.com",
+  "https://ptb.discord.com",
+  "https://canary.discord.com",
+  "https://*.discordsays.com",
+] as const;
+
 function splitOrigins(raw: string): string[] {
   return raw
     .split(",")
@@ -37,16 +47,11 @@ function matchOrigin(origin: string, allowedOrigin: string): boolean {
 export function getAllowedOrigins(): string[] {
   const envOrigins = process.env.CLIENT_ORIGIN;
   if (!envOrigins) {
-    return [
-      "http://localhost:4200",
-      "https://d20-new.vercel.app",
-      "https://discord.com",
-      "https://ptb.discord.com",
-      "https://canary.discord.com",
-      "https://*.discordsays.com",
-    ];
+    return [...DEFAULT_ALLOWED_ORIGINS];
   }
-  return splitOrigins(envOrigins);
+
+  const configuredOrigins = splitOrigins(envOrigins);
+  return Array.from(new Set([...DEFAULT_ALLOWED_ORIGINS, ...configuredOrigins]));
 }
 
 export function isOriginAllowed(origin: string): boolean {
