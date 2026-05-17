@@ -26,14 +26,18 @@ export function requireRoomId(socket: Socket): string | null {
 export function resolveActorLabel(socket: Socket): string {
   const state = getSocketState(socket);
   if (state.role === "dm") {
-    return "dm";
+    return "El DM";
   }
 
   if (!state.roomId || !state.sessionId) {
-    return state.role ?? "desconocido";
+    return state.role === "player"
+      ? "Jugador"
+      : state.role === "spectator"
+        ? "Espectador"
+        : "Desconocido";
   }
 
   const room = getRoom(state.roomId);
   const token = room?.tokens.find((item) => item.claimedBy === state.sessionId);
-  return token?.name ?? state.role ?? "jugador";
+  return token?.name ?? (state.role === "player" ? "Jugador" : "Espectador");
 }
