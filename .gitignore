@@ -6,3 +6,4 @@ node_modules/
 dist/
 coverage/
 backend/data/vtt-snapshot.json
+.agents
