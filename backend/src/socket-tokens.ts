@@ -196,6 +196,55 @@ export function registerTokenHandlers(io: Server, socket: Socket): void {
     broadcastRoomState(io, room);
   });
 
+  socket.on("releasePc", (rawPayload: unknown) => {
+    const roomId = requireRoomId(socket);
+    if (!roomId) return;
+
+    const parsed = claimPcSchema.safeParse(rawPayload);
+    if (!parsed.success) {
+      socket.emit("claimError", { code: "VALIDATION_ERROR", message: "releasePc inválido" });
+      return;
+    }
+
+    const room = getRoom(roomId);
+    if (!room) {
+      socket.emit("claimError", { code: "ROOM_NOT_FOUND", message: "Sala no encontrada" });
+      return;
+    }
+
+    const state = getSocketState(socket);
+    if (!state.role) return;
+
+    const token = room.tokens.find((item) => item.id === parsed.data.tokenId && item.type === "pc");
+    if (!token) {
+      socket.emit("claimError", { code: "TOKEN_NOT_FOUND", message: "PC no encontrado" });
+      return;
+    }
+
+    // Solo el DM o el jugador que lo tiene reclamado pueden liberarlo
+    if (!isDm(state.role) && token.claimedBy !== state.sessionId) {
+      socket.emit("claimError", {
+        code: "FORBIDDEN",
+        message: "No tienes permiso para liberar este PC",
+      });
+      return;
+    }
+
+    token.claimedBy = undefined;
+
+    // Si el jugador que lo tenía reclamado es el que hace la petición, limpiar su estado
+    if (state.claimedTokenId === token.id) {
+      state.claimedTokenId = undefined;
+      socket.emit("sessionState", { role: state.role });
+    }
+
+    // Si el DM lo libera, también deberíamos avisar al jugador original para que su sesión se limpie,
+    // pero al hacer broadcastRoomState el frontend se enterará y ajustará su estado (aunque la sesión siga igual).
+    // Lo ideal sería emitir sessionState al jugador dueño, pero requeriría buscar su socket.
+
+    broadcastRoomState(io, room);
+  });
+
   socket.on("tokenSetConditions", (rawPayload: unknown) => {
     const roomId = requireRoomId(socket);
     if (!roomId) {

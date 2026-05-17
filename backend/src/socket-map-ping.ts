@@ -52,7 +52,7 @@ export function registerMapPingHandlers(io: Server, socket: Socket): void {
       return;
     }
 
-    io.to(roomId).emit("mapPing", {
+    socket.broadcast.to(roomId).emit("mapPing", {
       x: parsed.data.x,
       y: parsed.data.y,
       by: resolveActorLabel(socket),
