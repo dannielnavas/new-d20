@@ -14,7 +14,7 @@ export function sanitizeRoomState(room: RoomState): RoomState {
       ...token,
       conditions: [...token.conditions],
     })),
-    chatLog: safeRoom.chatLog.map((entry) => ({ ...entry })),
+
     activityLog: safeRoom.activityLog.map((entry) => ({ ...entry })),
     diceLog: safeRoom.diceLog.map((entry) => ({ ...entry, rolls: [...entry.rolls] })),
     initiative: {

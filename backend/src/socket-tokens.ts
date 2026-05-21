@@ -35,6 +35,14 @@ const tokenIdentitySchema = z.object({
   imageUrl: z.string().trim().min(1).max(2048).optional().or(z.literal("")),
 });
 
+const tokenStatsSchema = z.object({
+  tokenId: z.string().min(1),
+  hp: z.number().int().optional(),
+  maxHp: z.number().int().optional(),
+  ac: z.number().int().optional(),
+  frameColor: z.string().trim().max(32).optional().or(z.literal("")),
+});
+
 const moveRateLimiter = createRateLimiter({ max: 40, windowMs: 1000 });
 
 function canControlToken(token: Token, state: ReturnType<typeof getSocketState>): boolean {
@@ -314,6 +322,46 @@ export function registerTokenHandlers(io: Server, socket: Socket): void {
 
     token.name = parsed.data.name;
     token.imageUrl = parsed.data.imageUrl?.trim() || undefined;
+    broadcastRoomState(io, room);
+  });
+
+  socket.on("tokenUpdateStats", (rawPayload: unknown) => {
+    const roomId = requireRoomId(socket);
+    if (!roomId) {
+      return;
+    }
+
+    const parsed = tokenStatsSchema.safeParse(rawPayload);
+    if (!parsed.success) {
+      socket.emit("tokenError", {
+        code: "VALIDATION_ERROR",
+        message: "tokenUpdateStats inválido",
+      });
+      return;
+    }
+
+    const room = getRoom(roomId);
+    if (!room) {
+      socket.emit("tokenError", { code: "ROOM_NOT_FOUND", message: "Sala no encontrada" });
+      return;
+    }
+
+    const state = getSocketState(socket);
+    const token = room.tokens.find((item) => item.id === parsed.data.tokenId);
+    if (!state.role || !token || !canControlToken(token, state)) {
+      socket.emit("tokenError", {
+        code: "FORBIDDEN",
+        message: "No puedes editar las estadísticas de esta ficha",
+      });
+      return;
+    }
+
+    if (parsed.data.hp !== undefined) token.hp = parsed.data.hp;
+    if (parsed.data.maxHp !== undefined) token.maxHp = parsed.data.maxHp;
+    if (parsed.data.ac !== undefined) token.ac = parsed.data.ac;
+    if (parsed.data.frameColor !== undefined)
+      token.frameColor = parsed.data.frameColor || undefined;
+
     broadcastRoomState(io, room);
   });
 

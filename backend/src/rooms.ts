@@ -19,7 +19,7 @@ function createDefaultRoom(roomId: string): RoomState {
       discordInviteUrl: "",
     },
     tokens: [],
-    chatLog: [],
+
     activityLog: [],
     diceLog: [],
     initiative: {

@@ -12,6 +12,7 @@ import { DieType, RollMode } from "./types.js";
 const diceRollSchema = z.object({
   dieType: z.enum(["d4", "d6", "d8", "d10", "d12", "d20", "d100"]),
   mode: z.enum(["normal", "advantage", "disadvantage"]).optional(),
+  count: z.number().int().min(1).max(4).optional(),
 });
 
 function sidesFromDieType(dieType: DieType): number {
@@ -37,7 +38,11 @@ function rollDie(sides: number): number {
   return Math.floor(Math.random() * sides) + 1;
 }
 
-function resolveDice(dieType: DieType, mode: RollMode): { total: number; rolls: number[] } {
+function resolveDice(
+  dieType: DieType,
+  mode: RollMode,
+  count = 1,
+): { total: number; rolls: number[] } {
   if (dieType === "d20" && (mode === "advantage" || mode === "disadvantage")) {
     const rollA = rollDie(20);
     const rollB = rollDie(20);
@@ -47,12 +52,20 @@ function resolveDice(dieType: DieType, mode: RollMode): { total: number; rolls: 
     };
   }
 
-  const total = rollDie(sidesFromDieType(dieType));
-  return { total, rolls: [total] };
+  const sides = sidesFromDieType(dieType);
+  const rolls: number[] = [];
+  let total = 0;
+  for (let i = 0; i < count; i++) {
+    const val = rollDie(sides);
+    rolls.push(val);
+    total += val;
+  }
+  return { total, rolls };
 }
 
 export function registerDiceHandlers(io: Server, socket: Socket): void {
   socket.on("diceRoll", (rawPayload: unknown) => {
+    console.log("DEBUG diceRoll rawPayload:", rawPayload);
     const roomId = requireRoomId(socket);
     if (!roomId) {
       return;
@@ -60,6 +73,7 @@ export function registerDiceHandlers(io: Server, socket: Socket): void {
 
     const parsed = diceRollSchema.safeParse(rawPayload);
     if (!parsed.success) {
+      console.log("DEBUG diceRoll validation failed:", parsed.error);
       socket.emit("roomError", { code: "VALIDATION_ERROR", message: "diceRoll inválido" });
       return;
     }
@@ -82,7 +96,10 @@ export function registerDiceHandlers(io: Server, socket: Socket): void {
 
     const dieType = parsed.data.dieType;
     const mode: RollMode = parsed.data.mode ?? "normal";
-    const result = resolveDice(dieType, mode);
+    const count = parsed.data.count ?? 1;
+    console.log(`DEBUG diceRoll parsed: dieType=${dieType}, mode=${mode}, count=${count}`);
+    const result = resolveDice(dieType, mode, count);
+    console.log("DEBUG diceRoll resolveDice result:", result);
 
     const entry = {
       id: randomUUID(),

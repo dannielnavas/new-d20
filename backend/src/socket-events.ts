@@ -1,6 +1,5 @@
 import { Server, Socket } from "socket.io";
 
-import { registerChatHandlers } from "./socket-chat.js";
 import { registerDiceHandlers } from "./socket-dice.js";
 import { registerDmHandlers } from "./socket-dm.js";
 import { registerInitiativeHandlers } from "./socket-initiative.js";
@@ -10,7 +9,7 @@ import { registerTokenHandlers } from "./socket-tokens.js";
 
 export function registerSocketEventHandlers(io: Server, socket: Socket): void {
   registerTokenHandlers(io, socket);
-  registerChatHandlers(io, socket);
+
   registerDiceHandlers(io, socket);
   registerMapPingHandlers(io, socket);
   registerMediaHandlers(io, socket);
