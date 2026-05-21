@@ -2,7 +2,7 @@
   "rooms": [
     {
       "roomId": "demo",
-      "roomVersion": 54,
+      "roomVersion": 78,
       "sessionPasswordConfigured": false,
       "settings": {
         "backgroundUrl": "",
@@ -22,7 +22,8 @@
           "x": 200,
           "y": 240,
           "size": 1,
-          "conditions": []
+          "conditions": [],
+          "claimedBy": "5dbafe01-bc4a-4aa7-9bc8-e7a65c3bf257"
         },
         {
           "id": "8801cfa1-6158-4b17-b01e-23ff8892c7b9",
@@ -56,6 +57,10 @@
         {
           "sessionId": "1033f0ed-c5d0-4ad9-a08e-13c7d5c9b3f8",
           "role": "dm"
+        },
+        {
+          "sessionId": "5dbafe01-bc4a-4aa7-9bc8-e7a65c3bf257",
+          "role": "player"
         }
       ]
     }

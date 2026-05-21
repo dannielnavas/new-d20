@@ -11,9 +11,36 @@ const mapPingSchema = z.object({
   y: z.number().refine(Number.isFinite, { message: "y debe ser finito" }),
 });
 
+const mapViewSyncSchema = z.object({
+  zoom: z.number().refine(Number.isFinite, { message: "zoom debe ser finito" }),
+  panX: z.number().refine(Number.isFinite, { message: "panX debe ser finito" }),
+  panY: z.number().refine(Number.isFinite, { message: "panY debe ser finito" }),
+});
+
 const pingRateLimiter = createRateLimiter({ max: 8, windowMs: 1500 });
 
 export function registerMapPingHandlers(io: Server, socket: Socket): void {
+  socket.on("mapViewSync", (rawPayload: unknown) => {
+    const roomId = requireRoomId(socket);
+    if (!roomId) {
+      return;
+    }
+
+    const parsed = mapViewSyncSchema.safeParse(rawPayload);
+    if (!parsed.success) {
+      socket.emit("roomError", { code: "VALIDATION_ERROR", message: "mapViewSync inválido" });
+      return;
+    }
+
+    const state = getSocketState(socket);
+    if (!state.role || state.role !== "dm") {
+      // Only DM can sync map view
+      return;
+    }
+
+    socket.broadcast.to(roomId).emit("mapViewSync", parsed.data);
+  });
+
   socket.on("mapPing", (rawPayload: unknown) => {
     const roomId = requireRoomId(socket);
     if (!roomId) {
