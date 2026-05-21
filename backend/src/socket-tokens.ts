@@ -41,6 +41,16 @@ const tokenStatsSchema = z.object({
   maxHp: z.number().int().optional(),
   ac: z.number().int().optional(),
   frameColor: z.string().trim().max(32).optional().or(z.literal("")),
+  size: z.number().min(1).max(5).optional(),
+});
+
+const tokenRotateSchema = z.object({
+  tokenId: z.string().min(1),
+  rotation: z
+    .number()
+    .min(0)
+    .max(360)
+    .refine(Number.isFinite, { message: "rotation debe ser finito" }),
 });
 
 const moveRateLimiter = createRateLimiter({ max: 40, windowMs: 1000 });
@@ -57,6 +67,41 @@ function canControlToken(token: Token, state: ReturnType<typeof getSocketState>)
 }
 
 export function registerTokenHandlers(io: Server, socket: Socket): void {
+  socket.on("tokenRotate", (rawPayload: unknown) => {
+    const roomId = requireRoomId(socket);
+    if (!roomId) {
+      return;
+    }
+
+    const parsed = tokenRotateSchema.safeParse(rawPayload);
+    if (!parsed.success) {
+      socket.emit("tokenError", { code: "VALIDATION_ERROR", message: "tokenRotate inválido" });
+      return;
+    }
+
+    const room = getRoom(roomId);
+    if (!room) {
+      socket.emit("tokenError", { code: "ROOM_NOT_FOUND", message: "Sala no encontrada" });
+      return;
+    }
+
+    const state = getSocketState(socket);
+    if (!state.role || !canMutateTokens(state.role)) {
+      socket.emit("tokenError", { code: "FORBIDDEN", message: "No puedes rotar fichas" });
+      return;
+    }
+
+    const token = room.tokens.find((item) => item.id === parsed.data.tokenId);
+    if (!token || !canControlToken(token, state)) {
+      socket.emit("tokenError", { code: "FORBIDDEN", message: "No puedes rotar esta ficha" });
+      return;
+    }
+
+    token.rotation = parsed.data.rotation;
+    io.to(roomId).emit("tokenRotate", { tokenId: token.id, rotation: token.rotation });
+    broadcastRoomState(io, room);
+  });
+
   socket.on("tokenMove", (rawPayload: unknown) => {
     const roomId = requireRoomId(socket);
     if (!roomId) {
@@ -361,6 +406,7 @@ export function registerTokenHandlers(io: Server, socket: Socket): void {
     if (parsed.data.ac !== undefined) token.ac = parsed.data.ac;
     if (parsed.data.frameColor !== undefined)
       token.frameColor = parsed.data.frameColor || undefined;
+    if (parsed.data.size !== undefined) token.size = parsed.data.size;
 
     broadcastRoomState(io, room);
   });

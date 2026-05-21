@@ -32,6 +32,7 @@ export interface Token {
   hp?: number;
   maxHp?: number;
   ac?: number;
+  rotation?: number;
 }
 
 export interface ActivityEntry {
@@ -48,6 +49,7 @@ export interface DiceEntry {
   rolls: number[];
   by: string;
   ts: number;
+  secret?: boolean;
 }
 
 export interface InitiativeState {

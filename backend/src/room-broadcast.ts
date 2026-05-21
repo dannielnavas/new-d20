@@ -4,6 +4,8 @@ import { schedulePersistRooms } from "./persistence.js";
 import { getRoomsMap } from "./rooms.js";
 import { RoomState } from "./types.js";
 
+import { getSocketState } from "./socket-state.js";
+
 export function sanitizeRoomState(room: RoomState): RoomState {
   const { sessionPasswordHash: _sessionPasswordHash, ...safeRoom } = room;
 
@@ -25,8 +27,27 @@ export function sanitizeRoomState(room: RoomState): RoomState {
   };
 }
 
+export function sanitizeRoomStateForRole(room: RoomState, role?: string): RoomState {
+  const sanitized = sanitizeRoomState(room);
+  if (role !== "dm") {
+    sanitized.diceLog = sanitized.diceLog.filter((entry) => !entry.secret);
+  }
+  return sanitized;
+}
+
 export function broadcastRoomState(io: Server, room: RoomState): void {
   room.roomVersion += 1;
-  io.to(room.roomId).emit("roomState", sanitizeRoomState(room));
+
+  const sockets = io.sockets.adapter.rooms.get(room.roomId);
+  if (sockets) {
+    for (const socketId of sockets) {
+      const socket = io.sockets.sockets.get(socketId);
+      if (socket) {
+        const state = getSocketState(socket);
+        socket.emit("roomState", sanitizeRoomStateForRole(room, state.role));
+      }
+    }
+  }
+
   schedulePersistRooms(getRoomsMap());
 }

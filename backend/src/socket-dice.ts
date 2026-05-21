@@ -7,12 +7,13 @@ import { broadcastRoomState } from "./room-broadcast.js";
 import { getRoom } from "./rooms.js";
 import { canWriteChat, isDm } from "./socket-guards.js";
 import { getSocketState, requireRoomId, resolveActorLabel } from "./socket-state.js";
-import { DieType, RollMode } from "./types.js";
+import { DiceEntry, DieType, RollMode } from "./types.js";
 
 const diceRollSchema = z.object({
   dieType: z.enum(["d4", "d6", "d8", "d10", "d12", "d20", "d100"]),
   mode: z.enum(["normal", "advantage", "disadvantage"]).optional(),
   count: z.number().int().min(1).max(4).optional(),
+  secret: z.boolean().optional(),
 });
 
 function sidesFromDieType(dieType: DieType): number {
@@ -97,11 +98,16 @@ export function registerDiceHandlers(io: Server, socket: Socket): void {
     const dieType = parsed.data.dieType;
     const mode: RollMode = parsed.data.mode ?? "normal";
     const count = parsed.data.count ?? 1;
-    console.log(`DEBUG diceRoll parsed: dieType=${dieType}, mode=${mode}, count=${count}`);
+    // Only DM is allowed to make rolls secret
+    const secret = role === "dm" ? !!parsed.data.secret : false;
+
+    console.log(
+      `DEBUG diceRoll parsed: dieType=${dieType}, mode=${mode}, count=${count}, secret=${secret}`,
+    );
     const result = resolveDice(dieType, mode, count);
     console.log("DEBUG diceRoll resolveDice result:", result);
 
-    const entry = {
+    const entry: DiceEntry = {
       id: randomUUID(),
       dieType,
       mode,
@@ -109,6 +115,7 @@ export function registerDiceHandlers(io: Server, socket: Socket): void {
       rolls: result.rolls,
       by: resolveActorLabel(socket),
       ts: Date.now(),
+      secret,
     };
 
     room.diceLog.push(entry);
@@ -116,7 +123,24 @@ export function registerDiceHandlers(io: Server, socket: Socket): void {
       room.diceLog = room.diceLog.slice(-300);
     }
 
-    io.to(roomId).emit("diceRolled", entry);
+    if (secret) {
+      // Send ONLY to the DM sockets in this room
+      const sockets = io.sockets.adapter.rooms.get(roomId);
+      if (sockets) {
+        for (const socketId of sockets) {
+          const s = io.sockets.sockets.get(socketId);
+          if (s) {
+            const socketState = getSocketState(s);
+            if (socketState.role === "dm") {
+              s.emit("diceRolled", entry);
+            }
+          }
+        }
+      }
+    } else {
+      io.to(roomId).emit("diceRolled", entry);
+    }
+
     broadcastRoomState(io, room);
   });
 
