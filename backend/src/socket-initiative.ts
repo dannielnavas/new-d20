@@ -22,7 +22,7 @@ const initiativeSetCurrentSchema = z.object({
   index: z.number().int().min(0),
 });
 
-const roomModifiers = new Map<string, Map<string, number>>();
+export const roomModifiers = new Map<string, Map<string, number>>();
 
 function requireDm(socket: Socket): boolean {
   const state = getSocketState(socket);
@@ -33,7 +33,7 @@ function requireDm(socket: Socket): boolean {
   return true;
 }
 
-function getModifier(roomId: string, tokenId: string): number {
+export function getInitiativeModifier(roomId: string, tokenId: string): number {
   return roomModifiers.get(roomId)?.get(tokenId) ?? 0;
 }
 
@@ -87,7 +87,7 @@ export function registerInitiativeHandlers(io: Server, socket: Socket): void {
     const order = [...room.tokens]
       .map((token) => {
         const die = Math.floor(Math.random() * 20) + 1;
-        const total = die + getModifier(roomId, token.id);
+        const total = die + getInitiativeModifier(roomId, token.id);
         room.diceLog.push({
           id: randomUUID(),
           dieType: "d20",
