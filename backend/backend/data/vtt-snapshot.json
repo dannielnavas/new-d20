@@ -2,7 +2,7 @@
   "rooms": [
     {
       "roomId": "demo",
-      "roomVersion": 619,
+      "roomVersion": 683,
       "sessionPasswordConfigured": false,
       "settings": {
         "backgroundUrl": "",
@@ -26,14 +26,15 @@
           "hp": 10,
           "maxHp": 10,
           "ac": 12,
-          "rotation": 0
+          "rotation": 0,
+          "claimedBy": "1033f0ed-c5d0-4ad9-a08e-13c7d5c9b3f8"
         },
         {
           "id": "8801cfa1-6158-4b17-b01e-23ff8892c7b9",
           "type": "pc",
           "name": "Brynn",
-          "x": 227,
-          "y": 521,
+          "x": 200,
+          "y": 300,
           "size": 1,
           "conditions": []
         }
@@ -46,7 +47,12 @@
         "order": [],
         "currentIndex": -1
       },
-      "presence": []
+      "presence": [
+        {
+          "sessionId": "1033f0ed-c5d0-4ad9-a08e-13c7d5c9b3f8",
+          "role": "player"
+        }
+      ]
     }
   ]
 }

@@ -330,6 +330,14 @@ export function registerTokenHandlers(io: Server, socket: Socket): void {
       return;
     }
 
+    if (!isDm(state.role)) {
+      socket.emit("tokenError", {
+        code: "FORBIDDEN",
+        message: "Solo el DM puede modificar las condiciones de las fichas",
+      });
+      return;
+    }
+
     token.conditions = parsed.data.conditions;
     broadcastRoomState(io, room);
   });
@@ -399,6 +407,30 @@ export function registerTokenHandlers(io: Server, socket: Socket): void {
         message: "No puedes editar las estadísticas de esta ficha",
       });
       return;
+    }
+
+    if (!isDm(state.role)) {
+      // Enforce player limits: only allow modifying current HP (once initialized)
+      const isInitializingMaxHp = token.maxHp === undefined && parsed.data.maxHp !== undefined;
+      const isInitializingAc = token.ac === undefined && parsed.data.ac !== undefined;
+
+      const maxHpChanged =
+        parsed.data.maxHp !== undefined &&
+        parsed.data.maxHp !== token.maxHp &&
+        !isInitializingMaxHp;
+      const acChanged =
+        parsed.data.ac !== undefined && parsed.data.ac !== token.ac && !isInitializingAc;
+      const frameColorChanged =
+        parsed.data.frameColor !== undefined && parsed.data.frameColor !== token.frameColor;
+      const sizeChanged = parsed.data.size !== undefined && parsed.data.size !== token.size;
+
+      if (maxHpChanged || acChanged || frameColorChanged || sizeChanged) {
+        socket.emit("tokenError", {
+          code: "FORBIDDEN",
+          message: "Los jugadores solo pueden modificar el HP actual",
+        });
+        return;
+      }
     }
 
     if (parsed.data.hp !== undefined) token.hp = parsed.data.hp;
