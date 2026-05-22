@@ -442,8 +442,8 @@ export function registerTokenHandlers(io: Server, socket: Socket): void {
     }
 
     const token = room.tokens[tokenIndex];
-    if (!token || token.type !== "npc") {
-      socket.emit("tokenError", { code: "FORBIDDEN", message: "Solo se pueden borrar PNJ" });
+    if (!token) {
+      socket.emit("tokenError", { code: "TOKEN_NOT_FOUND", message: "Token no encontrado" });
       return;
     }
 
@@ -455,6 +455,23 @@ export function registerTokenHandlers(io: Server, socket: Socket): void {
     }
 
     room.tokens.splice(tokenIndex, 1);
+
+    if (token.type === "pc") {
+      io.in(roomId)
+        .fetchSockets()
+        .then((sockets) => {
+          for (const s of sockets) {
+            const sState = getSocketState(s as any);
+            if (sState.claimedTokenId === token.id) {
+              sState.claimedTokenId = undefined;
+              s.emit("sessionState", { role: sState.role });
+            }
+          }
+        })
+        .catch((err) => {
+          console.error("[socket-tokens] Error fetching sockets on tokenRemove:", err);
+        });
+    }
 
     broadcastRoomState(io, room);
   });

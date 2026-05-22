@@ -2,7 +2,7 @@
   "rooms": [
     {
       "roomId": "demo",
-      "roomVersion": 78,
+      "roomVersion": 619,
       "sessionPasswordConfigured": false,
       "settings": {
         "backgroundUrl": "",
@@ -19,11 +19,14 @@
           "id": "fe57eb3a-4e14-4534-92b3-3df909c208d5",
           "type": "pc",
           "name": "Aelar",
-          "x": 200,
-          "y": 240,
+          "x": 400,
+          "y": 200,
           "size": 1,
           "conditions": [],
-          "claimedBy": "5dbafe01-bc4a-4aa7-9bc8-e7a65c3bf257"
+          "hp": 10,
+          "maxHp": 10,
+          "ac": 12,
+          "rotation": 0
         },
         {
           "id": "8801cfa1-6158-4b17-b01e-23ff8892c7b9",
@@ -33,16 +36,6 @@
           "y": 521,
           "size": 1,
           "conditions": []
-        },
-        {
-          "id": "8b6d6629-c50c-4459-947f-32816b4496d3",
-          "type": "npc",
-          "name": "Guardia",
-          "x": 800,
-          "y": 450,
-          "size": 1,
-          "conditions": [],
-          "frameColor": "purple"
         }
       ],
       "chatLog": [],
@@ -51,18 +44,9 @@
       "initiative": {
         "visible": false,
         "order": [],
-        "currentIndex": 0
+        "currentIndex": -1
       },
-      "presence": [
-        {
-          "sessionId": "1033f0ed-c5d0-4ad9-a08e-13c7d5c9b3f8",
-          "role": "dm"
-        },
-        {
-          "sessionId": "5dbafe01-bc4a-4aa7-9bc8-e7a65c3bf257",
-          "role": "player"
-        }
-      ]
+      "presence": []
     }
   ]
 }
