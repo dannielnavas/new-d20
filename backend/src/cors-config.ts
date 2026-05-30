@@ -8,6 +8,7 @@ const DEFAULT_ALLOWED_ORIGINS = [
   "https://ptb.discord.com",
   "https://canary.discord.com",
   "https://*.discordsays.com",
+  "https://*.trycloudflare.com",
 ] as const;
 
 function splitOrigins(raw: string): string[] {
