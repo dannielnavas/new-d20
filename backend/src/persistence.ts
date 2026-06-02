@@ -22,6 +22,8 @@ const roomStateSchema = z.object({
     mapAudioEnabled: z.boolean(),
     mapVolume: z.number(),
     discordInviteUrl: z.string().max(2048).default(""),
+    boardWidth: z.number().default(1600),
+    boardHeight: z.number().default(900),
   }),
   tokens: z.array(
     z.object({

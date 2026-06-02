@@ -18,6 +18,8 @@ const updateRoomSettingsSchema = z
     playersCanPing: z.boolean().optional(),
     mapAudioEnabled: z.boolean().optional(),
     mapVolume: z.number().int().min(0).max(100).optional(),
+    boardWidth: z.number().int().min(200).max(4000).optional(),
+    boardHeight: z.number().int().min(200).max(4000).optional(),
   })
   .refine((value) => Object.keys(value).length > 0, {
     message: "Debe enviarse al menos una propiedad",

@@ -17,6 +17,8 @@ function createDefaultRoom(roomId: string): RoomState {
       mapAudioEnabled: false,
       mapVolume: 50,
       discordInviteUrl: "",
+      boardWidth: 1600,
+      boardHeight: 900,
     },
     tokens: [],
 
