@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { z } from "zod";
 
+import { ENV } from "./env.js";
+
 const authBodySchema = z.object({
   code: z.string().min(1),
 });
@@ -23,8 +25,8 @@ export function buildDiscordAuthRouter(): Router {
       return;
     }
 
-    const clientId = process.env.DISCORD_CLIENT_ID;
-    const clientSecret = process.env.DISCORD_CLIENT_SECRET;
+    const clientId = ENV.DISCORD_CLIENT_ID;
+    const clientSecret = ENV.DISCORD_CLIENT_SECRET;
 
     if (!clientId || !clientSecret) {
       res
@@ -40,7 +42,7 @@ export function buildDiscordAuthRouter(): Router {
       code: parsed.data.code,
     });
 
-    const redirectUri = process.env.DISCORD_REDIRECT_URI;
+    const redirectUri = ENV.DISCORD_REDIRECT_URI;
     if (redirectUri) {
       form.set("redirect_uri", redirectUri);
     }

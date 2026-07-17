@@ -1,5 +1,7 @@
 import { CorsOptions } from "cors";
 
+import { ENV } from "./env.js";
+
 const DEFAULT_ALLOWED_ORIGINS = [
   "http://localhost:4200",
   "https://d20-new.vercel.app",
@@ -46,7 +48,7 @@ function matchOrigin(origin: string, allowedOrigin: string): boolean {
 }
 
 export function getAllowedOrigins(): string[] {
-  const envOrigins = process.env.CLIENT_ORIGIN;
+  const envOrigins = ENV.CLIENT_ORIGIN;
   if (!envOrigins) {
     return [...DEFAULT_ALLOWED_ORIGINS];
   }
@@ -56,10 +58,6 @@ export function getAllowedOrigins(): string[] {
 }
 
 export function isOriginAllowed(origin: string): boolean {
-  if (origin === "null") {
-    return true;
-  }
-
   return getAllowedOrigins().some((allowedOrigin) => matchOrigin(origin, allowedOrigin));
 }
 

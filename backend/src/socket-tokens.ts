@@ -4,8 +4,9 @@ import { Server, Socket } from "socket.io";
 import { z } from "zod";
 
 import { createRateLimiter } from "./rate-limit.js";
+import { logger } from "./logger.js";
 import { broadcastRoomState } from "./room-broadcast.js";
-import { getRoom } from "./rooms.js";
+import { findTokenById, getRoom, invalidateTokenIndex } from "./rooms.js";
 import { canMutateTokens, isDm } from "./socket-guards.js";
 import { getSocketState, requireRoomId } from "./socket-state.js";
 import { Token } from "./types.js";
@@ -54,6 +55,7 @@ const tokenRotateSchema = z.object({
 });
 
 const moveRateLimiter = createRateLimiter({ max: 40, windowMs: 1000 });
+const mutateRateLimiter = createRateLimiter({ max: 20, windowMs: 1000 });
 
 function canControlToken(token: Token, state: ReturnType<typeof getSocketState>): boolean {
   if (!state.role) {
@@ -91,7 +93,7 @@ export function registerTokenHandlers(io: Server, socket: Socket): void {
       return;
     }
 
-    const token = room.tokens.find((item) => item.id === parsed.data.tokenId);
+    const token = findTokenById(room, parsed.data.tokenId);
     if (!token || !canControlToken(token, state)) {
       socket.emit("tokenError", { code: "FORBIDDEN", message: "No puedes rotar esta ficha" });
       return;
@@ -135,7 +137,7 @@ export function registerTokenHandlers(io: Server, socket: Socket): void {
       return;
     }
 
-    const token = room.tokens.find((item) => item.id === parsed.data.tokenId);
+    const token = findTokenById(room, parsed.data.tokenId);
     if (!token || !canControlToken(token, state)) {
       socket.emit("tokenError", { code: "FORBIDDEN", message: "No puedes mover esta ficha" });
       return;
@@ -175,7 +177,7 @@ export function registerTokenHandlers(io: Server, socket: Socket): void {
     }
 
     const state = getSocketState(socket);
-    const token = room.tokens.find((item) => item.id === parsed.data.tokenId);
+    const token = findTokenById(room, parsed.data.tokenId);
     if (!state.role || !token || !canControlToken(token, state)) {
       socket.emit("tokenError", { code: "FORBIDDEN", message: "No puedes mover esta ficha" });
       return;
@@ -214,8 +216,8 @@ export function registerTokenHandlers(io: Server, socket: Socket): void {
       return;
     }
 
-    const token = room.tokens.find((item) => item.id === parsed.data.tokenId && item.type === "pc");
-    if (!token) {
+    const token = findTokenById(room, parsed.data.tokenId);
+    if (!token || token.type !== "pc") {
       socket.emit("claimError", { code: "TOKEN_NOT_FOUND", message: "PC no encontrado" });
       return;
     }
@@ -268,8 +270,8 @@ export function registerTokenHandlers(io: Server, socket: Socket): void {
     const state = getSocketState(socket);
     if (!state.role) return;
 
-    const token = room.tokens.find((item) => item.id === parsed.data.tokenId && item.type === "pc");
-    if (!token) {
+    const token = findTokenById(room, parsed.data.tokenId);
+    if (!token || token.type !== "pc") {
       socket.emit("claimError", { code: "TOKEN_NOT_FOUND", message: "PC no encontrado" });
       return;
     }
@@ -304,6 +306,11 @@ export function registerTokenHandlers(io: Server, socket: Socket): void {
       return;
     }
 
+    if (!mutateRateLimiter(`${socket.id}:tokenSetConditions`)) {
+      socket.emit("tokenError", { code: "RATE_LIMITED", message: "Demasiadas actualizaciones" });
+      return;
+    }
+
     const parsed = tokenSetConditionsSchema.safeParse(rawPayload);
     if (!parsed.success) {
       socket.emit("tokenError", {
@@ -320,7 +327,7 @@ export function registerTokenHandlers(io: Server, socket: Socket): void {
     }
 
     const state = getSocketState(socket);
-    const token = room.tokens.find((item) => item.id === parsed.data.tokenId);
+    const token = findTokenById(room, parsed.data.tokenId);
 
     if (!state.role || !token || !canControlToken(token, state)) {
       socket.emit("tokenError", {
@@ -348,6 +355,11 @@ export function registerTokenHandlers(io: Server, socket: Socket): void {
       return;
     }
 
+    if (!mutateRateLimiter(`${socket.id}:tokenUpdateIdentity`)) {
+      socket.emit("tokenError", { code: "RATE_LIMITED", message: "Demasiadas actualizaciones" });
+      return;
+    }
+
     const parsed = tokenIdentitySchema.safeParse(rawPayload);
     if (!parsed.success) {
       socket.emit("tokenError", {
@@ -364,7 +376,7 @@ export function registerTokenHandlers(io: Server, socket: Socket): void {
     }
 
     const state = getSocketState(socket);
-    const token = room.tokens.find((item) => item.id === parsed.data.tokenId);
+    const token = findTokenById(room, parsed.data.tokenId);
     if (!state.role || !token || !canControlToken(token, state)) {
       socket.emit("tokenError", {
         code: "FORBIDDEN",
@@ -384,6 +396,11 @@ export function registerTokenHandlers(io: Server, socket: Socket): void {
       return;
     }
 
+    if (!mutateRateLimiter(`${socket.id}:tokenUpdateStats`)) {
+      socket.emit("tokenError", { code: "RATE_LIMITED", message: "Demasiadas actualizaciones" });
+      return;
+    }
+
     const parsed = tokenStatsSchema.safeParse(rawPayload);
     if (!parsed.success) {
       socket.emit("tokenError", {
@@ -400,7 +417,7 @@ export function registerTokenHandlers(io: Server, socket: Socket): void {
     }
 
     const state = getSocketState(socket);
-    const token = room.tokens.find((item) => item.id === parsed.data.tokenId);
+    const token = findTokenById(room, parsed.data.tokenId);
     if (!state.role || !token || !canControlToken(token, state)) {
       socket.emit("tokenError", {
         code: "FORBIDDEN",
@@ -487,6 +504,7 @@ export function registerTokenHandlers(io: Server, socket: Socket): void {
     }
 
     room.tokens.splice(tokenIndex, 1);
+    invalidateTokenIndex(room);
 
     if (token.type === "pc") {
       io.in(roomId)
@@ -501,7 +519,7 @@ export function registerTokenHandlers(io: Server, socket: Socket): void {
           }
         })
         .catch((err) => {
-          console.error("[socket-tokens] Error fetching sockets on tokenRemove:", err);
+          logger.error({ err }, "Error fetching sockets on tokenRemove");
         });
     }
 
@@ -532,6 +550,7 @@ export function registerTokenHandlers(io: Server, socket: Socket): void {
       size: 1,
       conditions: [],
     });
+    invalidateTokenIndex(room);
 
     broadcastRoomState(io, room);
   });

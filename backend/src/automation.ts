@@ -4,6 +4,8 @@ import { Request, Router } from "express";
 import { Server } from "socket.io";
 import { z } from "zod";
 
+import { ENV } from "./env.js";
+import { logger } from "./logger.js";
 import { broadcastRoomState } from "./room-broadcast.js";
 import { getRoom } from "./rooms.js";
 import { getInitiativeModifier } from "./socket-initiative.js";
@@ -78,7 +80,7 @@ const tokenToggleConditionPayloadSchema = z.object({
 });
 
 function isAutomationEnabled(): boolean {
-  return process.env.AUTOMATION_ENABLED === "1";
+  return ENV.AUTOMATION_ENABLED;
 }
 
 function isLoopback(ip: string): boolean {
@@ -114,7 +116,7 @@ function validateAutomationSecurity(
     };
   }
 
-  const configuredToken = process.env.AUTOMATION_TOKEN;
+  const configuredToken = ENV.AUTOMATION_TOKEN;
   if (!configuredToken) {
     return {
       ok: false,
@@ -131,7 +133,7 @@ function validateAutomationSecurity(
     };
   }
 
-  if (process.env.AUTOMATION_LOCAL_ONLY === "1") {
+  if (ENV.AUTOMATION_LOCAL_ONLY) {
     const callerIp = extractCallerIp(
       (req as unknown as { ip?: string }).ip,
       req.header("x-forwarded-for") ?? undefined,
@@ -510,7 +512,7 @@ function applyAutomationAction(
             }
           })
           .catch((err) => {
-            console.error("[socket-tokens] Error fetching sockets on tokenRemove:", err);
+            logger.error({ err }, "Error fetching sockets on tokenRemove");
           });
       }
 

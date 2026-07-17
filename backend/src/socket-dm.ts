@@ -3,8 +3,9 @@ import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { Server, Socket } from "socket.io";
 import { z } from "zod";
 
+import { createRateLimiter } from "./rate-limit.js";
 import { broadcastRoomState } from "./room-broadcast.js";
-import { getRoom } from "./rooms.js";
+import { getRoom, invalidateTokenIndex } from "./rooms.js";
 import { isDm } from "./socket-guards.js";
 import { getSocketState, requireRoomId } from "./socket-state.js";
 import { RoomState } from "./types.js";
@@ -64,6 +65,8 @@ export function isSessionPasswordValid(room: RoomState, password: string | undef
 
   return timingSafeEqual(expected, provided);
 }
+
+const dmSpawnRateLimiter = createRateLimiter({ max: 5, windowMs: 1000 });
 
 export function registerDmHandlers(io: Server, socket: Socket): void {
   socket.on("updateRoomSettings", (rawPayload: unknown) => {
@@ -142,6 +145,12 @@ export function registerDmHandlers(io: Server, socket: Socket): void {
       return;
     }
 
+    const rateKey = `${socket.id}:spawnNpc`;
+    if (!dmSpawnRateLimiter(rateKey)) {
+      socket.emit("dmError", { code: "RATE_LIMITED", message: "Demasiados spawns" });
+      return;
+    }
+
     const parsed = spawnNpcSchema.safeParse(rawPayload);
     if (!parsed.success) {
       socket.emit("dmError", { code: "VALIDATION_ERROR", message: "spawnNpc inválido" });
@@ -171,6 +180,7 @@ export function registerDmHandlers(io: Server, socket: Socket): void {
       size: 1,
       conditions: [],
     });
+    invalidateTokenIndex(room);
 
     broadcastRoomState(io, room);
   });
@@ -178,6 +188,12 @@ export function registerDmHandlers(io: Server, socket: Socket): void {
   socket.on("spawnPc", (rawPayload: unknown) => {
     const roomId = requireRoomId(socket);
     if (!roomId) {
+      return;
+    }
+
+    const rateKey = `${socket.id}:spawnPc`;
+    if (!dmSpawnRateLimiter(rateKey)) {
+      socket.emit("dmError", { code: "RATE_LIMITED", message: "Demasiados spawns" });
       return;
     }
 
@@ -214,6 +230,7 @@ export function registerDmHandlers(io: Server, socket: Socket): void {
         conditions: [],
       });
     }
+    invalidateTokenIndex(room);
 
     broadcastRoomState(io, room);
   });

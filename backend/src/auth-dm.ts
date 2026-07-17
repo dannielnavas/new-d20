@@ -3,6 +3,9 @@ import { JWTPayload, jwtVerify, SignJWT } from "jose";
 import { createHash, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 
+import { ENV } from "./env.js";
+import { createRateLimiter } from "./rate-limit.js";
+
 const dmAuthBodySchema = z.object({
   dmKey: z.string().min(1),
 });
@@ -12,7 +15,7 @@ const DM_ISSUER = "d20-vtt";
 const DM_AUDIENCE = "d20-dm";
 
 function getDmSecret(): string {
-  const secret = process.env.JWT_SECRET || process.env.DM_SECRET;
+  const secret = ENV.JWT_SECRET || ENV.DM_SECRET;
   if (!secret) {
     throw new Error("DM_SECRET o JWT_SECRET es requerido para autenticar DM");
   }
@@ -66,34 +69,49 @@ function safeDmKeyEquals(inputDmKey: string, configuredDmSecret: string): boolea
   return timingSafeEqual(inputHash, secretHash);
 }
 
+const authRateLimiter = createRateLimiter({ max: 10, windowMs: 60_000 });
+
 export function buildDmAuthRouter(): Router {
   const router = Router();
 
-  router.post("/", async (req, res) => {
-    const parsed = dmAuthBodySchema.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({ code: "VALIDATION_ERROR", message: "Body inválido" });
-      return;
-    }
+  router.post(
+    "/",
+    (req, res, next) => {
+      const key = req.ip ?? "unknown";
+      if (!authRateLimiter(key)) {
+        res
+          .status(429)
+          .json({ code: "RATE_LIMITED", message: "Demasiados intentos. Espera un minuto." });
+        return;
+      }
+      next();
+    },
+    async (req, res) => {
+      const parsed = dmAuthBodySchema.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({ code: "VALIDATION_ERROR", message: "Body inválido" });
+        return;
+      }
 
-    const dmSecret = process.env.DM_SECRET;
-    if (!dmSecret) {
-      res.status(500).json({ code: "CONFIG_ERROR", message: "DM_SECRET no está configurado" });
-      return;
-    }
+      const dmSecret = ENV.DM_SECRET;
+      if (!dmSecret) {
+        res.status(500).json({ code: "CONFIG_ERROR", message: "DM_SECRET no está configurado" });
+        return;
+      }
 
-    if (!safeDmKeyEquals(parsed.data.dmKey, dmSecret)) {
-      res.status(401).json({ code: "INVALID_DM_KEY", message: "Credenciales inválidas" });
-      return;
-    }
+      if (!safeDmKeyEquals(parsed.data.dmKey, dmSecret)) {
+        res.status(401).json({ code: "INVALID_DM_KEY", message: "Credenciales inválidas" });
+        return;
+      }
 
-    try {
-      const token = await signDmToken();
-      res.json({ token, expiresIn: DM_TOKEN_EXPIRATION });
-    } catch {
-      res.status(500).json({ code: "TOKEN_ISSUE_ERROR", message: "No se pudo emitir token" });
-    }
-  });
+      try {
+        const token = await signDmToken();
+        res.json({ token, expiresIn: DM_TOKEN_EXPIRATION });
+      } catch {
+        res.status(500).json({ code: "TOKEN_ISSUE_ERROR", message: "No se pudo emitir token" });
+      }
+    },
+  );
 
   return router;
 }

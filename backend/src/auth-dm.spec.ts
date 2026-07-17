@@ -1,23 +1,28 @@
+import { jwtVerify, SignJWT } from "jose";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { signDmToken, verifyDmToken } from "./auth-dm.js";
 
-describe("auth-dm", () => {
-  const originalEnv = {
-    DM_SECRET: process.env.DM_SECRET,
-    JWT_SECRET: process.env.JWT_SECRET,
-  };
+function makeKey(secret: string): Uint8Array {
+  return new TextEncoder().encode(secret);
+}
 
+async function signTokenWithSecret(secret: string): Promise<string> {
+  return new SignJWT({ role: "dm", tokenType: "dm" })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuer("d20-vtt")
+    .setAudience("d20-dm")
+    .setIssuedAt()
+    .setExpirationTime("12h")
+    .sign(makeKey(secret));
+}
+
+describe("auth-dm", () => {
   afterEach(() => {
-    process.env.DM_SECRET = originalEnv.DM_SECRET;
-    process.env.JWT_SECRET = originalEnv.JWT_SECRET;
     vi.restoreAllMocks();
   });
 
   it("firma y valida token DM con claims esperados", async () => {
-    process.env.DM_SECRET = "secret_dm_de_prueba_123456789";
-    process.env.JWT_SECRET = "secret_jwt_de_prueba_123456789";
-
     const token = await signDmToken();
     const payload = await verifyDmToken(token);
 
@@ -27,15 +32,13 @@ describe("auth-dm", () => {
   });
 
   it("rechaza token DM cuando se verifica con secreto distinto", async () => {
-    process.env.DM_SECRET = "secret_dm_1";
-    process.env.JWT_SECRET = "secret_jwt_1";
+    const token = await signTokenWithSecret("secret_1");
 
-    const token = await signDmToken();
+    const payload = await jwtVerify(token, makeKey("secret_2"), {
+      issuer: "d20-vtt",
+      audience: "d20-dm",
+    }).catch(() => null);
 
-    process.env.DM_SECRET = "secret_dm_2";
-    process.env.JWT_SECRET = "secret_jwt_2";
-
-    const payload = await verifyDmToken(token);
     expect(payload).toBeNull();
   });
 });

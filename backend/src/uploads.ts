@@ -1,7 +1,10 @@
 import { createHash } from "node:crypto";
-
 import { Router } from "express";
+
 import { z } from "zod";
+
+import { ENV } from "./env.js";
+import { logger } from "./logger.js";
 
 const uploadImageSchema = z.object({
   dataUrl: z
@@ -28,9 +31,9 @@ function resolveCloudinaryConfig(): {
   apiSecret: string;
   defaultFolder: string;
 } | null {
-  const cloudName = process.env.CLOUDINARY_CLOUD_NAME?.trim();
-  const apiKey = process.env.CLOUDINARY_API_KEY?.trim();
-  const apiSecret = process.env.CLOUDINARY_API_SECRET?.trim();
+  const cloudName = ENV.CLOUDINARY_CLOUD_NAME?.trim();
+  const apiKey = ENV.CLOUDINARY_API_KEY?.trim();
+  const apiSecret = ENV.CLOUDINARY_API_SECRET?.trim();
 
   if (!cloudName || !apiKey || !apiSecret) {
     return null;
@@ -40,7 +43,7 @@ function resolveCloudinaryConfig(): {
     cloudName,
     apiKey,
     apiSecret,
-    defaultFolder: process.env.CLOUDINARY_UPLOAD_FOLDER?.trim() || "d20-vtt/tokens",
+    defaultFolder: ENV.CLOUDINARY_UPLOAD_FOLDER?.trim() || "d20-vtt/tokens",
   };
 }
 
@@ -126,7 +129,7 @@ export function buildUploadsRouter(): Router {
         url: parsedUpload.data.secure_url,
       });
     } catch (error: unknown) {
-      console.error("Error subiendo imagen a Cloudinary", error);
+      logger.error({ err: error }, "Error subiendo imagen a Cloudinary");
       res.status(502).json({
         code: "UPLOAD_FAILED",
         message: "No se pudo subir la imagen",
