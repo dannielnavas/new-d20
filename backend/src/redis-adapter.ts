@@ -2,12 +2,15 @@ import { createAdapter } from "@socket.io/redis-adapter";
 import { createClient } from "redis";
 import { Server } from "socket.io";
 
+import { ENV } from "./env.js";
+import { logger } from "./logger.js";
+import { roomStateSchema } from "./persistence.js";
 import { RoomState } from "./types.js";
 
 const DEFAULT_REDIS_TTL_SECONDS = 86400;
 
 function getRedisTtlSeconds(): number {
-  const rawTtl = process.env.REDIS_SESSION_TTL;
+  const rawTtl = ENV.REDIS_SESSION_TTL;
   const parsed = Number(rawTtl);
   if (Number.isInteger(parsed) && parsed > 0) {
     return parsed;
@@ -47,7 +50,7 @@ export interface RedisRoomStore {
 }
 
 export async function applyRedisAdapter(io: Server): Promise<RedisRoomStore | null> {
-  const redisUrl = process.env.REDIS_URL;
+  const redisUrl = ENV.REDIS_URL;
   if (!redisUrl) {
     return null;
   }
@@ -59,9 +62,9 @@ export async function applyRedisAdapter(io: Server): Promise<RedisRoomStore | nu
   try {
     await Promise.all([pubClient.connect(), subClient.connect()]);
     io.adapter(createAdapter(pubClient, subClient));
-    console.info("Redis adapter activo para Socket.IO");
+    logger.info("Redis adapter activo para Socket.IO");
   } catch (error: unknown) {
-    console.warn("No se pudo activar Redis adapter; iniciando en modo single-node", error);
+    logger.warn({ err: error }, "No se pudo activar Redis adapter; iniciando en modo single-node");
     await Promise.allSettled([safeDisconnect(pubClient), safeDisconnect(subClient)]);
     return null;
   }
@@ -73,14 +76,22 @@ export async function applyRedisAdapter(io: Server): Promise<RedisRoomStore | nu
         if (!raw) {
           return null;
         }
-        const room = JSON.parse(raw) as RoomState;
+        const parsed = roomStateSchema.safeParse(JSON.parse(raw) as unknown);
+        if (!parsed.success) {
+          logger.warn(
+            { roomId, issues: parsed.error.issues },
+            "Room de Redis no pasó validación Zod; descartando",
+          );
+          return null;
+        }
+        const room = parsed.data as RoomState;
         room.settings = {
           ...room.settings,
           discordInviteUrl: room.settings.discordInviteUrl ?? "",
         };
         return room;
       } catch (error: unknown) {
-        console.warn(`No se pudo leer room:${roomId} desde Redis`, error);
+        logger.warn({ roomId, err: error }, "No se pudo leer room desde Redis");
         return null;
       }
     },

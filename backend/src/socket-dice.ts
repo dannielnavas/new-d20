@@ -3,6 +3,8 @@ import { randomUUID } from "node:crypto";
 import { Server, Socket } from "socket.io";
 import { z } from "zod";
 
+import { logger } from "./logger.js";
+import { createRateLimiter } from "./rate-limit.js";
 import { broadcastRoomState } from "./room-broadcast.js";
 import { getRoom } from "./rooms.js";
 import { canWriteChat, isDm } from "./socket-guards.js";
@@ -65,8 +67,9 @@ function resolveDice(
 }
 
 export function registerDiceHandlers(io: Server, socket: Socket): void {
+  const diceRollRateLimiter = createRateLimiter({ max: 10, windowMs: 1000 });
+
   socket.on("diceRoll", (rawPayload: unknown) => {
-    console.log("DEBUG diceRoll rawPayload:", rawPayload);
     const roomId = requireRoomId(socket);
     if (!roomId) {
       return;
@@ -74,7 +77,6 @@ export function registerDiceHandlers(io: Server, socket: Socket): void {
 
     const parsed = diceRollSchema.safeParse(rawPayload);
     if (!parsed.success) {
-      console.log("DEBUG diceRoll validation failed:", parsed.error);
       socket.emit("roomError", { code: "VALIDATION_ERROR", message: "diceRoll inválido" });
       return;
     }
@@ -95,17 +97,19 @@ export function registerDiceHandlers(io: Server, socket: Socket): void {
       return;
     }
 
+    const rateKey = `${socket.id}:diceRoll`;
+    if (!diceRollRateLimiter(rateKey)) {
+      socket.emit("roomError", { code: "RATE_LIMITED", message: "Demasiadas tiradas de dados" });
+      return;
+    }
+
     const dieType = parsed.data.dieType;
     const mode: RollMode = parsed.data.mode ?? "normal";
     const count = parsed.data.count ?? 1;
-    // Only DM is allowed to make rolls secret
     const secret = role === "dm" ? !!parsed.data.secret : false;
 
-    console.log(
-      `DEBUG diceRoll parsed: dieType=${dieType}, mode=${mode}, count=${count}, secret=${secret}`,
-    );
+    logger.debug({ dieType, mode, count, secret, by: resolveActorLabel(socket) }, "diceRoll");
     const result = resolveDice(dieType, mode, count);
-    console.log("DEBUG diceRoll resolveDice result:", result);
 
     const entry: DiceEntry = {
       id: randomUUID(),

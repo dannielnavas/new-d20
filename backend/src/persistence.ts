@@ -3,12 +3,14 @@ import path from "node:path";
 
 import { z } from "zod";
 
+import { ENV } from "./env.js";
+import { logger } from "./logger.js";
 import { RedisRoomStore } from "./redis-adapter.js";
 import { RoomState } from "./types.js";
 
 const SAVE_DEBOUNCE_MS = 500;
 
-const roomStateSchema = z.object({
+export const roomStateSchema = z.object({
   roomId: z.string(),
   roomVersion: z.number(),
   sessionPasswordConfigured: z.boolean(),
@@ -65,6 +67,13 @@ const roomStateSchema = z.object({
   presence: z.array(
     z.object({ sessionId: z.string(), role: z.enum(["dm", "player", "spectator"]) }),
   ),
+  sessionMeta: z
+    .object({
+      name: z.string(),
+      accessTokenHash: z.string(),
+      createdAt: z.number(),
+    })
+    .optional(),
 });
 
 const snapshotSchema = z.object({
@@ -79,7 +88,7 @@ export function setRedisRoomStore(store: RedisRoomStore | null): void {
 }
 
 export function getPersistencePath(): string {
-  return process.env.PERSISTENCE_PATH || path.resolve(process.cwd(), "data/vtt-snapshot.json");
+  return ENV.PERSISTENCE_PATH || path.resolve(process.cwd(), "data/vtt-snapshot.json");
 }
 
 async function writeSnapshot(roomsMap: Map<string, RoomState>): Promise<void> {
@@ -103,7 +112,7 @@ async function syncRoomsToRedis(roomsMap: Map<string, RoomState>): Promise<void>
     });
     await redisRoomStore.setRooms(redisSafeRooms);
   } catch (error: unknown) {
-    console.warn("No se pudo sincronizar snapshot a Redis", error);
+    logger.warn({ err: error }, "No se pudo sincronizar snapshot a Redis");
   }
 }
 
@@ -115,7 +124,7 @@ export function schedulePersistRooms(roomsMap: Map<string, RoomState>): void {
   pendingWrite = setTimeout(() => {
     void Promise.all([writeSnapshot(roomsMap), syncRoomsToRedis(roomsMap)]).catch(
       (error: unknown) => {
-        console.error("No se pudo persistir snapshot", error);
+        logger.error({ err: error }, "No se pudo persistir snapshot");
       },
     );
     pendingWrite = null;
@@ -138,7 +147,7 @@ async function readRoomsSnapshotFromDisk(): Promise<RoomState[]> {
     const parsed = JSON.parse(raw) as unknown;
     const result = snapshotSchema.safeParse(parsed);
     if (!result.success) {
-      console.warn("Snapshot inválido; iniciando sin salas persistidas");
+      logger.warn("Snapshot inválido; iniciando sin salas persistidas");
       return [];
     }
 
@@ -154,7 +163,7 @@ async function readRoomsSnapshotFromDisk(): Promise<RoomState[]> {
       return [];
     }
 
-    console.error("No se pudo cargar snapshot", error);
+    logger.error({ err: error }, "No se pudo cargar snapshot");
     return [];
   }
 }

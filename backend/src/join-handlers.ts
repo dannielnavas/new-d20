@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 
 import { Server, Socket } from "socket.io";
 import { z } from "zod";
@@ -17,6 +17,7 @@ const joinRoomSchema = z.object({
   playerSessionId: z.string().optional(),
   sessionPassword: z.string().optional(),
   spectator: z.boolean().optional(),
+  accessToken: z.string().optional(),
 });
 
 async function resolveRole(payload: z.infer<typeof joinRoomSchema>): Promise<Role | null> {
@@ -65,6 +66,24 @@ export function registerJoinHandlers(io: Server, socket: Socket): void {
     }
 
     room = room ?? getOrCreateRoom(payload.roomId);
+
+    if (room.sessionMeta) {
+      const incomingHash = createHash("sha256")
+        .update(payload.accessToken ?? "")
+        .digest("hex");
+      const storedHash = Buffer.from(room.sessionMeta.accessTokenHash, "hex");
+      const incomingHashBuf = Buffer.from(incomingHash, "hex");
+      if (
+        storedHash.length !== incomingHashBuf.length ||
+        !timingSafeEqual(storedHash, incomingHashBuf)
+      ) {
+        socket.emit("roomError", {
+          code: "INVALID_ACCESS_TOKEN",
+          message: "Token de acceso inválido o faltante",
+        });
+        return;
+      }
+    }
 
     if (role !== "dm" && room.sessionPasswordConfigured) {
       if (!isSessionPasswordValid(room, payload.sessionPassword)) {

@@ -4,13 +4,17 @@ import { createServer } from "node:http";
 
 import cors from "cors";
 import express from "express";
+import helmet from "helmet";
 import { Server } from "socket.io";
 
 import { buildDmAuthRouter } from "./auth-dm.js";
 import { buildAutomationRouter } from "./automation.js";
 import { buildCorsOptions, isOriginAllowed } from "./cors-config.js";
 import { buildDiscordAuthRouter } from "./discord-auth.js";
+import { buildSessionsRouter } from "./sessions.js";
+import { ENV } from "./env.js";
 import { registerJoinHandlers } from "./join-handlers.js";
+import { logger } from "./logger.js";
 import { registerDisconnectHandler } from "./on-disconnect.js";
 import { flushPersistedRooms, loadRoomsFromDisk, setRedisRoomStore } from "./persistence.js";
 import { applyRedisAdapter } from "./redis-adapter.js";
@@ -19,12 +23,10 @@ import { registerSocketEventHandlers } from "./socket-events.js";
 import { registerPeerHandlers } from "./socket-peer.js";
 import { buildUploadsRouter } from "./uploads.js";
 
-const PORT = Number(process.env.PORT || 3000);
-const SOCKET_IO_PATH = process.env.SOCKET_IO_PATH || "/socketio";
-
 async function bootstrap(): Promise<void> {
   const app = express();
 
+  app.use(helmet({ contentSecurityPolicy: false }));
   app.use(cors(buildCorsOptions()));
   app.use(express.json({ limit: "12mb" }));
 
@@ -39,13 +41,21 @@ async function bootstrap(): Promise<void> {
   });
 
   app.get("/health", (_req, res) => {
-    res.json({ ok: true, service: "d20-vtt" });
+    const redisStatus = redisRoomStore ? "connected" : "disabled";
+    const uptime = process.uptime();
+    res.json({
+      ok: true,
+      service: "d20-vtt",
+      uptime: Math.floor(uptime),
+      redis: redisStatus,
+      memory: process.memoryUsage().rss,
+    });
   });
 
   const httpServer = createServer(app);
 
   const io = new Server(httpServer, {
-    path: SOCKET_IO_PATH,
+    path: ENV.SOCKET_IO_PATH,
     cors: {
       origin: (origin, callback) => {
         if (!origin || isOriginAllowed(origin)) {
@@ -66,11 +76,13 @@ async function bootstrap(): Promise<void> {
   app.use("/auth/discord", buildDiscordAuthRouter());
   app.use("/uploads", buildUploadsRouter());
   app.use("/automation", buildAutomationRouter(io));
+  app.use("/sessions", buildSessionsRouter());
 
   const persistedRooms = await loadRoomsFromDisk();
   hydrateRooms(persistedRooms);
 
   io.on("connection", (socket) => {
+    socket.on("error", (err) => logger.error({ err }, "socket error"));
     registerJoinHandlers(io, socket);
     registerSocketEventHandlers(io, socket);
     registerPeerHandlers(io, socket);
@@ -78,7 +90,7 @@ async function bootstrap(): Promise<void> {
   });
 
   const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
-    console.log(`Recibido ${signal}. Persistiendo estado y cerrando servidor...`);
+    logger.info({ signal }, "Cerrando servidor");
     await flushPersistedRooms(getRoomsMap());
     if (redisRoomStore) {
       await redisRoomStore.disconnect();
@@ -87,7 +99,7 @@ async function bootstrap(): Promise<void> {
     io.close();
     httpServer.close((error?: Error) => {
       if (error) {
-        console.error("Error al cerrar servidor HTTP", error);
+        logger.error({ err: error }, "Error al cerrar servidor HTTP");
         process.exit(1);
       }
       process.exit(0);
@@ -102,14 +114,14 @@ async function bootstrap(): Promise<void> {
     void shutdown("SIGTERM");
   });
 
-  httpServer.listen(PORT, () => {
-    console.log(`d20-vtt backend escuchando en :${PORT}`);
+  httpServer.listen(ENV.PORT, () => {
+    logger.info({ port: ENV.PORT }, "Backend iniciado");
   });
 }
 
 try {
   await bootstrap();
 } catch (error: unknown) {
-  console.error("Fallo al iniciar backend", error);
+  logger.fatal({ err: error }, "Fallo al iniciar backend");
   process.exit(1);
 }

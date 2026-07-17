@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { Server, Socket } from "socket.io";
 import { z } from "zod";
 
+import { createRateLimiter } from "./rate-limit.js";
 import { broadcastRoomState } from "./room-broadcast.js";
 import { getRoom } from "./rooms.js";
 import { isDm } from "./socket-guards.js";
@@ -37,6 +38,12 @@ export function getInitiativeModifier(roomId: string, tokenId: string): number {
   return roomModifiers.get(roomId)?.get(tokenId) ?? 0;
 }
 
+export function cleanupRoomModifiers(roomId: string): void {
+  roomModifiers.delete(roomId);
+}
+
+const initiativeRateLimiter = createRateLimiter({ max: 10, windowMs: 1000 });
+
 export function registerInitiativeHandlers(io: Server, socket: Socket): void {
   socket.on("initiativeSetModifier", (rawPayload: unknown) => {
     const roomId = requireRoomId(socket);
@@ -65,6 +72,11 @@ export function registerInitiativeHandlers(io: Server, socket: Socket): void {
       return;
     }
 
+    const rateKey = `${socket.id}:initiative`;
+    if (!initiativeRateLimiter(rateKey)) {
+      return;
+    }
+
     const modifierMap = roomModifiers.get(roomId) ?? new Map<string, number>();
     modifierMap.set(parsed.data.tokenId, parsed.data.modifier);
     roomModifiers.set(roomId, modifierMap);
@@ -75,6 +87,11 @@ export function registerInitiativeHandlers(io: Server, socket: Socket): void {
   socket.on("initiativeRollAll", () => {
     const roomId = requireRoomId(socket);
     if (!roomId || !requireDm(socket)) {
+      return;
+    }
+
+    const rateKey = `${socket.id}:initiative`;
+    if (!initiativeRateLimiter(rateKey)) {
       return;
     }
 
@@ -111,6 +128,11 @@ export function registerInitiativeHandlers(io: Server, socket: Socket): void {
   socket.on("initiativeNext", () => {
     const roomId = requireRoomId(socket);
     if (!roomId || !requireDm(socket)) {
+      return;
+    }
+
+    const rateKey = `${socket.id}:initiative`;
+    if (!initiativeRateLimiter(rateKey)) {
       return;
     }
 
